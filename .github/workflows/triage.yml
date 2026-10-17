@@ -23,15 +23,19 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
 
       - name: Restore previous triage.json from the data branch
         run: |
           mkdir -p data
           if git ls-remote --exit-code --heads origin data >/dev/null 2>&1; then
             git fetch --depth=1 origin data
-            git show FETCH_HEAD:triage.json > data/triage.json
+            # Write to a temp file so a failed git show never leaves an empty triage.json behind.
+            git show FETCH_HEAD:triage.json > data/triage.json.tmp
+            mv data/triage.json.tmp data/triage.json
           else
             echo "No data branch yet, starting fresh"
           fi
