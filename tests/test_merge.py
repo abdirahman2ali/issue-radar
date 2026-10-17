@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from pipeline.classify import build_state, serialize_answers
-from pipeline.merge import empty_state, update_state
+from pipeline.merge import empty_state, safe_issue_url, update_state
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
 SINCE = NOW - timedelta(days=3)
@@ -102,6 +102,17 @@ def test_limit_classifies_newest_and_keeps_watermark():
     assert sorted(calls) == [1, 2]
     assert not stats["complete"]
     assert state["watermark"] == "2026-10-14T12:00:00Z"
+
+
+def test_only_github_https_urls_are_kept():
+    assert safe_issue_url("https://github.com/o/r/issues/1") == "https://github.com/o/r/issues/1"
+    for bad in (
+        "javascript:alert(1)",
+        "http://github.com/o/r",
+        "https://github.com.evil.io/x",
+        None,
+    ):
+        assert safe_issue_url(bad) == ""
 
 
 def test_build_state_truncates_body():

@@ -2,6 +2,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 from pipeline.config import EXCERPT_CHARS, MAX_ISSUES, MODEL, WINDOW_DAYS
 
@@ -25,12 +26,18 @@ def excerpt(body: str | None) -> str:
     return text[:EXCERPT_CHARS]
 
 
+def safe_issue_url(url: str | None) -> str:
+    """Keep only https://github.com links so the site can never render a foreign href."""
+    parts = urlparse(url or "")
+    return url if parts.scheme == "https" and parts.hostname == "github.com" else ""
+
+
 def github_fields(repo: str, issue: dict) -> dict:
     return {
         "repo": repo,
         "number": issue["number"],
         "title": issue["title"],
-        "url": issue["html_url"],
+        "url": safe_issue_url(issue.get("html_url")),
         "author": (issue.get("user") or {}).get("login"),
         "state": issue["state"],
         "labels": [lbl["name"] for lbl in issue.get("labels", []) if isinstance(lbl, dict)],

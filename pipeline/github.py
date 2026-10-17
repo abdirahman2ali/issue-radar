@@ -69,6 +69,9 @@ def fetch_issues(
         resp = _get(client, url, params, sleep)
         issues.extend(i for i in resp.json() if "pull_request" not in i)
         url = resp.links.get("next", {}).get("url")
+        if url and not url.startswith(f"{API}/"):
+            # Never send the bearer token anywhere but the GitHub API.
+            raise ValueError("pagination link points outside api.github.com")
         params = None
     return issues
 

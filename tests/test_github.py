@@ -29,6 +29,15 @@ def test_paginates_and_drops_pull_requests():
     assert seen[0].url.params["state"] == "all"
 
 
+def test_rejects_pagination_link_outside_github_api():
+    def handler(request: httpx.Request) -> httpx.Response:
+        evil = '<https://evil.example/steal>; rel="next"'
+        return httpx.Response(200, json=[{"number": 1}], headers={"Link": evil})
+
+    with pytest.raises(ValueError):
+        fetch_issues("o/r", SINCE, client_for(handler), sleep=lambda _: None)
+
+
 def test_retries_server_errors_then_succeeds():
     attempts = []
     sleeps: list[float] = []
