@@ -1,0 +1,69 @@
+name: Deploy site
+
+on:
+  # Called by the daily triage workflow after it publishes fresh data.
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Fetch the latest triage.json from the data branch
+        run: |
+          mkdir -p site/public
+          git fetch --depth=1 origin data
+          # Temp file so a failed git show never leaves an empty triage.json behind.
+          git show FETCH_HEAD:triage.json > site/public/triage.json.tmp
+          mv site/public/triage.json.tmp site/public/triage.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build
+        working-directory: site
+        env:
+          VITE_BASE: /issue-radar/
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

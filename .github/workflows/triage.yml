@@ -15,7 +15,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: triage
@@ -25,6 +25,8 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,3 +72,14 @@ jobs:
           echo "::add-mask::$B64"
           export GIT_AUTH_HEADER="AUTHORIZATION: basic $B64"
           bash scripts/publish_data.sh data/triage.json "https://github.com/${GITHUB_REPOSITORY}.git"
+
+  # Pushes made with GITHUB_TOKEN do not trigger other workflows, so the site deploy is
+  # called explicitly. It runs even if some classifications failed, so the board still refreshes.
+  deploy:
+    needs: triage
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
