@@ -13,6 +13,11 @@ on:
         description: "Backfill: re-fetch issues from the last N days (1 to 7, blank for normal run)"
         required: false
         default: ""
+      reclassify:
+        description: "Re-ask one question for every issue in the window and overwrite its answer"
+        type: choice
+        options: [none, area, category, severity]
+        default: none
 
 permissions:
   contents: read
@@ -55,10 +60,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LIMIT: ${{ inputs.limit }}
           SINCE_DAYS: ${{ inputs.since_days }}
+          RECLASSIFY: ${{ inputs.reclassify }}
         run: |
           args=()
           if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
           if [ -n "$SINCE_DAYS" ]; then args+=(--since-days "$SINCE_DAYS"); fi
+          if [ -n "$RECLASSIFY" ] && [ "$RECLASSIFY" != "none" ]; then args+=(--reclassify "$RECLASSIFY"); fi
           uv run python -m pipeline.triage --out data/triage.json "${args[@]}"
 
       # Runs even when some classifications failed, so the board still updates.

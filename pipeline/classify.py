@@ -31,8 +31,10 @@ def serialize_answers(response: Any) -> dict:
     return out
 
 
-def classify_issue(issue: dict, client: Any) -> dict:
-    response = client.system_one(state=build_state(issue), questions=QUESTIONS)
+def classify_issue(issue: dict, client: Any, names: list[str] | None = None) -> dict:
+    """Ask Jev about one issue. `names` limits the questions asked (default: all)."""
+    questions = {n: QUESTIONS[n] for n in names} if names else QUESTIONS
+    response = client.system_one(state=build_state(issue), questions=questions)
     usage = response.usage
     return {
         "answers": serialize_answers(response),
@@ -41,12 +43,14 @@ def classify_issue(issue: dict, client: Any) -> dict:
     }
 
 
-def classify_many(issues: list[dict], client: Any) -> tuple[dict[int, dict], list[int]]:
+def classify_many(
+    issues: list[dict], client: Any, names: list[str] | None = None
+) -> tuple[dict[int, dict], list[int]]:
     """Classify issues concurrently. Returns ({issue_id: result}, [failed_issue_ids])."""
 
     def one(issue: dict) -> tuple[int, dict | None]:
         try:
-            return issue["id"], classify_issue(issue, client)
+            return issue["id"], classify_issue(issue, client, names)
         except TypeSafeError as exc:  # one bad call must not sink the whole run
             print(f"classify failed for #{issue['number']}: {type(exc).__name__}")
             return issue["id"], None

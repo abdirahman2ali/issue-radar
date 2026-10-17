@@ -34,6 +34,8 @@ issue-radar/
 
 Backfill: run `triage.yml` manually with `since_days` set to 1 to 7 to re-fetch a recent window. Already classified issues are never classified again.
 
+Changing a question: after editing a question in `pipeline/config.py` (for example adding area options), run `triage.yml` manually with `reclassify` set to that question. It re-asks only that question for every issue in the window and overwrites just that answer. Each overwritten answer is stamped with the time and model under `reclassified` on the record, so mixed history stays traceable.
+
 ## Data flow
 
 1. Fetch issues updated since the last run (PRs excluded).

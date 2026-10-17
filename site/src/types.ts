@@ -61,10 +61,14 @@ export const CATEGORIES: Record<string, string> = {
 export const AREAS: Record<string, string> = {
   cli_terminal: "CLI and terminal",
   ide_integration: "IDE integration",
+  desktop_app: "Desktop app",
+  web_cloud: "Web and cloud",
   mcp_tools: "MCP and tools",
+  model_behavior: "Model behavior",
   permissions_security: "Permissions and security",
   performance: "Performance",
   auth_billing: "Auth and billing",
+  install_update: "Install and update",
   other: "Other",
 };
 

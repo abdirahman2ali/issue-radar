@@ -123,3 +123,43 @@ def update_state(
         "complete": complete,
     }
     return new_state, stats
+
+
+def reclassify_state(
+    state: dict,
+    fetched: list[tuple[str, dict]],
+    classify: Classifier,
+    now: datetime,
+    names: list[str],
+) -> tuple[dict, dict]:
+    """Re-ask Jev the `names` questions for known issues and overwrite only those answers.
+
+    Everything else on the record is kept. The watermark is left alone, so the next normal run
+    still picks up new issues. Each overwritten question is stamped with the time and the model
+    that answered it, so mixed history stays traceable.
+    """
+    by_key = {record_key(r["repo"], r["number"]): r for r in state["issues"]}
+    targets = [(repo, i) for repo, i in fetched if record_key(repo, i["number"]) in by_key]
+    results, failed = classify([issue for _, issue in targets])
+
+    ts = fmt_ts(now)
+    tokens = 0
+    for repo, issue in targets:
+        result = results.get(issue["id"])
+        if result is None:
+            continue
+        record = by_key[record_key(repo, issue["number"])]
+        record["answers"].update({n: result["answers"][n] for n in names})
+        stamp = {"at": ts, "model": result["model"]}
+        record.setdefault("reclassified", {}).update({n: stamp for n in names})
+        tokens += result["tokens"]
+
+    fetched_keys = {record_key(repo, i["number"]) for repo, i in fetched}
+    new_state = {**state, "generated_at": ts, "issues": list(by_key.values())}
+    stats = {
+        "reclassified": len(results),
+        "failed": len(failed),
+        "not_fetched": len(by_key.keys() - fetched_keys),
+        "tokens": tokens,
+    }
+    return new_state, stats
