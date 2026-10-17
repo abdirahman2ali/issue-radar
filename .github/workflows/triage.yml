@@ -1,0 +1,62 @@
+name: Daily triage
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Classify at most N new issues (leave blank for all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: triage
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Restore previous triage.json from the data branch
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads origin data >/dev/null 2>&1; then
+            git fetch --depth=1 origin data
+            git show FETCH_HEAD:triage.json > data/triage.json
+          else
+            echo "No data branch yet, starting fresh"
+          fi
+
+      - name: Install dependencies
+        run: uv sync --python 3.12 --frozen
+
+      - name: Run triage
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          args=()
+          if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
+          uv run python -m pipeline.triage --out data/triage.json "${args[@]}"
+
+      # Runs even when some classifications failed, so the board still updates.
+      # The run stays red because the step above exited non-zero.
+      - name: Publish triage.json to the data branch
+        if: ${{ !cancelled() && hashFiles('data/triage.json') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          B64="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$B64"
+          export GIT_AUTH_HEADER="AUTHORIZATION: basic $B64"
+          bash scripts/publish_data.sh data/triage.json "https://github.com/${GITHUB_REPOSITORY}.git"
