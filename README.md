@@ -4,19 +4,35 @@ A daily triage board for GitHub issues, classified by Jev (TypeSafe AI's System 
 
 Once a day a GitHub Actions job pulls new issues from `anthropics/claude-code`, classifies each one with Jev (category, area, severity, urgency, regression, repro, needs info), publishes an interactive board to GitHub Pages, and incrementally loads the results into Databricks.
 
+![CI](https://github.com/abdirahman2ali/issue-radar/actions/workflows/ci.yml/badge.svg)
+
+Live board: https://abdirahman2ali.github.io/issue-radar/
+
 ## Status
 
-Scaffold only. The pipeline, site, and workflow are not built yet.
+Built: the pipeline, the daily workflow, the site, and CI/CD. Not built yet: the Databricks load and the live try-it box.
 
-## Planned layout
+## Layout
 
 ```
 issue-radar/
-├── pipeline/   Python: fetch issues, classify with Jev, merge, load to Databricks
+├── pipeline/   Python: fetch issues, classify with Jev, merge
 ├── site/       Vite + React + TypeScript board (filters, charts, detail drawer)
-├── worker/     Cloudflare Worker for the live try-it box (phase 2)
-└── .github/    daily workflow, Pages deploy
+├── scripts/    publish_data.sh, force-pushes triage.json to the data branch
+├── tests/      pytest for the pipeline
+└── .github/    workflows (ci, audit, triage, deploy) and dependabot
 ```
+
+## CI/CD
+
+| Workflow | When | What |
+|---|---|---|
+| `ci.yml` | every PR to main, push to main | Python lint and tests, site types, tests and build, workflow lint, secret scan. The `ci` job is the one required check. |
+| `audit.yml` | PRs, weekly, manual | `npm audit` and `pip-audit`. Advisory only, not required. |
+| `triage.yml` | daily 06:17 UTC, manual | Classify new issues, publish `triage.json` to the `data` branch, then deploy the site. |
+| `deploy.yml` | after triage, push to main touching `site/`, manual | Build the site with the latest data and deploy to GitHub Pages. |
+
+Backfill: run `triage.yml` manually with `since_days` set to 1 to 7 to re-fetch a recent window. Already classified issues are never classified again.
 
 ## Data flow
 
