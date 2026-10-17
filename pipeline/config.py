@@ -23,12 +23,31 @@ QUESTIONS = {
     "area": Choice(
         instructions="Which part of the product does this issue mainly concern?",
         criteria={
-            "cli_terminal": "Command line interface, terminal rendering, input, shortcuts",
-            "ide_integration": "VS Code, JetBrains, or other editor integrations",
+            "cli_terminal": (
+                "The command line tool in a terminal: rendering, input, keyboard shortcuts, "
+                "scrolling, slash commands, terminal UI"
+            ),
+            "ide_integration": "VS Code, JetBrains, or other editor extensions and integrations",
+            "desktop_app": (
+                "The Claude desktop app and its Code tab: windows, sessions, rendering, "
+                "crashes or UI problems in the app rather than the terminal"
+            ),
+            "web_cloud": (
+                "Claude Code on the web, cloud or remote sessions, routines, cowork, "
+                "scheduled or background agents"
+            ),
             "mcp_tools": "MCP servers, tool calls, hooks, plugins, skills, subagents",
+            "model_behavior": (
+                "Quality of the model's output or reasoning: wrong or made up answers, "
+                "ignoring instructions, refusals, bad edits, losing context"
+            ),
             "permissions_security": "Permissions, sandboxing, approvals, security",
             "performance": "Slowness, high memory or CPU use, hangs, token or context usage",
             "auth_billing": "Login, authentication, accounts, plans, rate limits, billing",
+            "install_update": (
+                "Installing or updating the product, packaging, environment setup, "
+                "platform specific breakage on Windows, WSL, Linux or macOS"
+            ),
             "other": "None of the above",
         },
     ),

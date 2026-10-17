@@ -9,9 +9,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from pipeline.classify import classify_many
-from pipeline.config import BACKFILL_DAYS, MODEL, REPOS, WINDOW_DAYS
+from pipeline.config import BACKFILL_DAYS, MODEL, QUESTIONS, REPOS, WINDOW_DAYS
 from pipeline.github import fetch_issues, get_token, make_client
-from pipeline.merge import empty_state, fmt_ts, parse_ts, update_state
+from pipeline.merge import empty_state, fmt_ts, parse_ts, reclassify_state, update_state
 
 
 def load_env() -> None:
@@ -63,6 +63,11 @@ def main(argv: list[str] | None = None) -> int:
         type=window_days,
         help=f"re-fetch issues from the last N days (1 to {WINDOW_DAYS}), ignoring the watermark",
     )
+    parser.add_argument(
+        "--reclassify",
+        choices=sorted(QUESTIONS),
+        help="re-ask just this question for every issue in the window and overwrite its answer",
+    )
     parser.add_argument("--dry-run", action="store_true", help="fetch and count, no Jev calls")
     args = parser.parse_args(argv)
 
@@ -71,6 +76,9 @@ def main(argv: list[str] | None = None) -> int:
     state = load_state(args.out)
     state.setdefault("model", MODEL)
     since, eligible_after = resolve_since(state, now, args.since_days)
+    if args.reclassify:
+        # Bodies are not stored, so re-fetch the whole window to get the text again.
+        since, eligible_after = now - timedelta(days=WINDOW_DAYS), None
 
     fetched: list[tuple[str, dict]] = []
     with make_client(get_token()) as http:
@@ -78,6 +86,23 @@ def main(argv: list[str] | None = None) -> int:
             issues = fetch_issues(repo, since, http)
             print(f"{repo}: {len(issues)} issues updated since {fmt_ts(since)}")
             fetched.extend((repo, i) for i in issues)
+
+    if args.reclassify:
+        from typesafe_sdk import TypeSafeClient
+
+        names = [args.reclassify]
+        known = {(r["repo"], r["number"]) for r in state["issues"]}
+        count = sum(1 for repo, i in fetched if (repo, i["number"]) in known)
+        if args.dry_run:
+            print(f"dry run: would re-ask '{args.reclassify}' for {count} issues")
+            return 0
+        with TypeSafeClient(model=state["model"]) as jev:
+            new_state, stats = reclassify_state(
+                state, fetched, lambda batch: classify_many(batch, jev, names), now, names
+            )
+        args.out.write_text(json.dumps(new_state, indent=1))
+        print(json.dumps(stats))
+        return 0 if stats["failed"] == 0 else 1
 
     if args.dry_run:
         _, stats = update_state(
