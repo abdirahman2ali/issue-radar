@@ -37,6 +37,7 @@ def classify_issue(issue: dict, client: Any) -> dict:
     return {
         "answers": serialize_answers(response),
         "tokens": (usage.input_tokens or 0) + (usage.output_tokens or 0),
+        "model": response.model,
     }
 
 

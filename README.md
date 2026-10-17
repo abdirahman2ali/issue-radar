@@ -28,7 +28,7 @@ issue-radar/
 
 ## Secrets
 
-Never commit `.env`. See `.env.example` for variable names.
+Never commit `.env`. Set these variables locally (shared `.env`) and as GitHub repo secrets:
 
 | Variable | Used by |
 |---|---|

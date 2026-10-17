@@ -90,7 +90,7 @@ def update_state(
         by_key[record_key(repo, issue["number"])] = {
             **github_fields(repo, issue),
             "answers": result["answers"],
-            "model": state.get("model", MODEL),
+            "model": result["model"],
             "classified_at": classified_at,
         }
 

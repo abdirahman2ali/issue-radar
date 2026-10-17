@@ -37,7 +37,11 @@ def fake_classifier(fail: set[int] | None = None):
             if fail and issue["number"] in fail:
                 failed.append(issue["id"])
             else:
-                results[issue["id"]] = {"answers": {"category": {"choice": "bug"}}, "tokens": 900}
+                results[issue["id"]] = {
+                    "answers": {"category": {"choice": "bug"}},
+                    "tokens": 900,
+                    "model": "jev-2026-10-01",
+                }
         return results, failed
 
     return classify, calls
@@ -52,6 +56,7 @@ def test_new_issues_are_classified_once():
     assert stats["classified"] == 2 and stats["tokens"] == 1800 and stats["complete"]
     assert state["watermark"] == "2026-10-17T12:00:00Z"
     assert all("answers" in r for r in state["issues"])
+    assert {r["model"] for r in state["issues"]} == {"jev-2026-10-01"}
 
     classify2, calls2 = fake_classifier()
     state2, stats2 = update_state(state, [(REPO, make_issue(1))], classify2, NOW, SINCE)
