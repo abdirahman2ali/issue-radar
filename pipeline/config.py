@@ -3,7 +3,7 @@ from typesafe_sdk import Choice, Noul, Score
 REPOS = ["anthropics/claude-code"]
 MODEL = "jev-latest"
 WINDOW_DAYS = 7
-BACKFILL_DAYS = 3
+BACKFILL_DAYS = WINDOW_DAYS  # a fresh state should cover the whole window, not part of it
 MAX_ISSUES = 2500
 BODY_CHARS = 2000
 EXCERPT_CHARS = 300

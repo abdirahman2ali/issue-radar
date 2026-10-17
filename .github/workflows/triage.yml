@@ -9,6 +9,10 @@ on:
         description: "Classify at most N new issues (leave blank for all)"
         required: false
         default: ""
+      since_days:
+        description: "Backfill: re-fetch issues from the last N days (1 to 7, blank for normal run)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -48,9 +52,11 @@ jobs:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LIMIT: ${{ inputs.limit }}
+          SINCE_DAYS: ${{ inputs.since_days }}
         run: |
           args=()
           if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
+          if [ -n "$SINCE_DAYS" ]; then args+=(--since-days "$SINCE_DAYS"); fi
           uv run python -m pipeline.triage --out data/triage.json "${args[@]}"
 
       # Runs even when some classifications failed, so the board still updates.
