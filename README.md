@@ -6,7 +6,7 @@ Once a day a GitHub Actions job pulls new issues from `anthropics/claude-code`, 
 
 ![CI](https://github.com/abdirahman2ali/issue-radar/actions/workflows/ci.yml/badge.svg)
 
-Live board: https://abdirahman2ali.github.io/issue-radar/
+Live board: https://issue-radar.dev/
 
 ## Status
 
