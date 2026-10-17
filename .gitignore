@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 .venv/
 __pycache__/
 .pytest_cache/
@@ -9,3 +8,4 @@ node_modules/
 dist/
 .claude/worktrees/
 .DS_Store
+data/

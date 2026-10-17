@@ -1,0 +1,87 @@
+"""Fetch new GitHub issues, classify them with Jev, and update data/triage.json."""
+
+import argparse
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+from pipeline.classify import classify_many
+from pipeline.config import BACKFILL_DAYS, MODEL, REPOS
+from pipeline.github import fetch_issues, get_token, make_client
+from pipeline.merge import empty_state, fmt_ts, parse_ts, update_state
+
+
+def load_env() -> None:
+    """Load the shared secrets file if one exists above this repo, then a local .env."""
+    for parent in Path(__file__).resolve().parents:
+        shared = parent / ".claude" / "credentials" / ".env"
+        if shared.is_file():
+            load_dotenv(shared)
+            break
+    load_dotenv(override=True)
+
+
+def load_state(path: Path) -> dict:
+    if not path.is_file():
+        return empty_state()
+    return json.loads(path.read_text())
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=Path, default=Path("data/triage.json"))
+    parser.add_argument("--repo", action="append", help="repo to fetch (default: config REPOS)")
+    parser.add_argument("--limit", type=int, help="classify at most N new issues (testing)")
+    parser.add_argument("--dry-run", action="store_true", help="fetch and count, no Jev calls")
+    args = parser.parse_args(argv)
+
+    load_env()
+    now = datetime.now(timezone.utc)
+    state = load_state(args.out)
+    state.setdefault("model", MODEL)
+    since = (
+        parse_ts(state["watermark"])
+        if state.get("watermark")
+        else now - timedelta(days=BACKFILL_DAYS)
+    )
+
+    fetched: list[tuple[str, dict]] = []
+    with make_client(get_token()) as http:
+        for repo in args.repo or REPOS:
+            issues = fetch_issues(repo, since, http)
+            print(f"{repo}: {len(issues)} issues updated since {fmt_ts(since)}")
+            fetched.extend((repo, i) for i in issues)
+
+    eligible_after = None if state.get("watermark") else now - timedelta(days=BACKFILL_DAYS)
+
+    if args.dry_run:
+        _, stats = update_state(
+            state, fetched, lambda batch: ({}, []), now, since, args.limit, eligible_after
+        )
+        print(f"dry run: {stats['new']} new issues would be classified")
+        return 0
+
+    from typesafe_sdk import TypeSafeClient
+
+    with TypeSafeClient(model=state["model"]) as jev:
+        new_state, stats = update_state(
+            state,
+            fetched,
+            lambda batch: classify_many(batch, jev),
+            now,
+            since,
+            args.limit,
+            eligible_after,
+        )
+
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(new_state, indent=1))
+    print(json.dumps(stats))
+    return 0 if stats["failed"] == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
