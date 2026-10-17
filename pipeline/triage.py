@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from pipeline.classify import classify_many
-from pipeline.config import BACKFILL_DAYS, MODEL, REPOS
+from pipeline.config import BACKFILL_DAYS, MODEL, REPOS, WINDOW_DAYS
 from pipeline.github import fetch_issues, get_token, make_client
 from pipeline.merge import empty_state, fmt_ts, parse_ts, update_state
 
@@ -30,11 +30,39 @@ def load_state(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+def window_days(value: str) -> int:
+    days = int(value)
+    if not 1 <= days <= WINDOW_DAYS:
+        raise argparse.ArgumentTypeError(f"must be between 1 and {WINDOW_DAYS}")
+    return days
+
+
+def resolve_since(
+    state: dict, now: datetime, since_days: int | None
+) -> tuple[datetime, datetime | None]:
+    """Return (fetch_since, eligible_after) for this run.
+
+    GitHub's `since` filters on updated time, so only a fetch that reaches back past an issue's
+    creation sees it. `since_days` forces a fresh look back (a backfill) regardless of watermark.
+    """
+    if since_days is not None:
+        return now - timedelta(days=since_days), None
+    if state.get("watermark"):
+        return parse_ts(state["watermark"]), None
+    start = now - timedelta(days=BACKFILL_DAYS)
+    return start, start
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=Path("data/triage.json"))
     parser.add_argument("--repo", action="append", help="repo to fetch (default: config REPOS)")
     parser.add_argument("--limit", type=int, help="classify at most N new issues (testing)")
+    parser.add_argument(
+        "--since-days",
+        type=window_days,
+        help=f"re-fetch issues from the last N days (1 to {WINDOW_DAYS}), ignoring the watermark",
+    )
     parser.add_argument("--dry-run", action="store_true", help="fetch and count, no Jev calls")
     args = parser.parse_args(argv)
 
@@ -42,11 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.now(timezone.utc)
     state = load_state(args.out)
     state.setdefault("model", MODEL)
-    since = (
-        parse_ts(state["watermark"])
-        if state.get("watermark")
-        else now - timedelta(days=BACKFILL_DAYS)
-    )
+    since, eligible_after = resolve_since(state, now, args.since_days)
 
     fetched: list[tuple[str, dict]] = []
     with make_client(get_token()) as http:
@@ -54,8 +78,6 @@ def main(argv: list[str] | None = None) -> int:
             issues = fetch_issues(repo, since, http)
             print(f"{repo}: {len(issues)} issues updated since {fmt_ts(since)}")
             fetched.extend((repo, i) for i in issues)
-
-    eligible_after = None if state.get("watermark") else now - timedelta(days=BACKFILL_DAYS)
 
     if args.dry_run:
         _, stats = update_state(
