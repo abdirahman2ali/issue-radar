@@ -1,4 +1,12 @@
-import { AREAS, CATEGORIES, FLAGS, FLAG_THRESHOLD, type FlagKey, type Issue } from "./types";
+import {
+  AREAS,
+  CATEGORIES,
+  FLAGS,
+  FLAG_THRESHOLD,
+  type FlagKey,
+  type Issue,
+  type Triage,
+} from "./types";
 
 export type SortKey = "urgency" | "severity" | "newest" | "comments";
 export type StateFilter = "all" | "open" | "closed";
@@ -83,6 +91,34 @@ export function dayOf(issue: Issue): string {
 
 export function isFlagged(issue: Issue, flag: FlagKey): boolean {
   return issue.answers[flag].noul >= FLAG_THRESHOLD;
+}
+
+export interface DayRange {
+  from: string | null;
+  through: string | null;
+}
+
+function previousDay(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * The complete UTC days to show. The pipeline writes `complete_days`. For older data without it,
+ * fall back to hiding the day the data was generated, which is still filling up.
+ */
+export function completeRange(triage: Triage): DayRange {
+  if (triage.complete_days) return triage.complete_days;
+  const through = triage.generated_at ? previousDay(triage.generated_at.slice(0, 10)) : null;
+  return { from: null, through };
+}
+
+/** Issues created inside the complete days only, so every day and every total is comparable. */
+export function onlyCompleteDays(triage: Triage): Issue[] {
+  const { from, through } = completeRange(triage);
+  return triage.issues.filter((i) => {
+    const day = dayOf(i);
+    return (from === null || day >= from) && (through === null || day <= through);
+  });
 }
 
 /** Apply every filter except the one for `skip`, so a facet's own counts stay selectable. */

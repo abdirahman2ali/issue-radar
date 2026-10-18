@@ -3,14 +3,16 @@ import { DailyChart, RowsChart } from "./components/Charts";
 import { Controls } from "./components/Controls";
 import { Drawer } from "./components/Drawer";
 import { IssueList } from "./components/IssueList";
-import { loadTriage, relativeTime } from "./data";
+import { loadTriage, relativeTime, shortDay } from "./data";
 import {
   DEFAULT_FILTERS,
   activeFilterCount,
   applyFilters,
+  completeRange,
   countBy,
   dailyCounts,
   isFlagged,
+  onlyCompleteDays,
   parseUrl,
   sortIssues,
   toSearch,
@@ -95,7 +97,9 @@ export function App() {
     [filters],
   );
 
-  const issues = triage?.issues ?? [];
+  const allIssues = useMemo(() => triage?.issues ?? [], [triage]);
+  const issues = useMemo(() => (triage ? onlyCompleteDays(triage) : []), [triage]);
+  const range = triage ? completeRange(triage) : null;
   const shown = useMemo(() => sortIssues(applyFilters(issues, filters), filters.sort), [issues, filters]);
   const categoryBars = useMemo(
     () => countBy(applyFilters(issues, filters, "categories"), (i) => i.answers.category.choice, CATEGORIES),
@@ -107,7 +111,8 @@ export function App() {
   );
   const dayBars = useMemo(() => dailyCounts(applyFilters(issues, filters, "day")), [issues, filters]);
   const active = activeFilterCount(filters);
-  const selectedIssue = selected ? issues.find((i) => i.number === selected) : undefined;
+  // Look in every issue, not just the complete days, so a shared link to a newer issue still opens.
+  const selectedIssue = selected ? allIssues.find((i) => i.number === selected) : undefined;
 
   if (error) {
     return (
@@ -137,6 +142,12 @@ export function App() {
             Every new <strong>anthropics/claude-code</strong> issue, classified by Jev. Refreshed daily
             {triage.generated_at ? `, last run ${relativeTime(triage.generated_at)}` : ""}.
           </p>
+          {range?.from && range.through && (
+            <p className="muted">
+              Complete UTC days only: {shortDay(range.from)} to {shortDay(range.through)}. Today is
+              left out until it ends.
+            </p>
+          )}
         </div>
         <button
           type="button"

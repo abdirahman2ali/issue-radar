@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from pipeline.classify import build_state, serialize_answers
+from pipeline.config import WINDOW_DAYS
 from pipeline.merge import empty_state, safe_issue_url, update_state
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
@@ -77,7 +78,7 @@ def test_known_issue_refreshes_github_fields_but_keeps_answers():
 
 def test_window_trims_old_issues_and_skips_old_new_ones():
     classify, calls = fake_classifier()
-    old = make_issue(1, hours_ago=24 * 8)
+    old = make_issue(1, hours_ago=24 * (WINDOW_DAYS + 1))
     state, _ = update_state(
         empty_state(), [(REPO, old), (REPO, make_issue(2))], classify, NOW, SINCE
     )

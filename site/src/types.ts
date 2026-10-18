@@ -47,6 +47,8 @@ export interface Triage {
   generated_at: string | null;
   watermark: string | null;
   model: string;
+  /** First and last UTC day the data covers in full. Added by the pipeline on every run. */
+  complete_days?: { from: string; through: string };
   issues: Issue[];
 }
 
