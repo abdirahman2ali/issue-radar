@@ -60,9 +60,11 @@ def test_new_issues_are_classified_once():
     assert {r["model"] for r in state["issues"]} == {"jev-2026-10-01"}
 
     classify2, calls2 = fake_classifier()
-    state2, stats2 = update_state(state, [(REPO, make_issue(1))], classify2, NOW, SINCE)
+    # A real second run returns every issue updated since SINCE, which includes both of these.
+    both = [(REPO, make_issue(1)), (REPO, make_issue(2))]
+    state2, stats2 = update_state(state, both, classify2, NOW, SINCE)
     assert calls2 == []
-    assert stats2["refreshed"] == 1 and stats2["new"] == 0
+    assert stats2["refreshed"] == 2 and stats2["new"] == 0
     assert len(state2["issues"]) == 2
 
 

@@ -1,10 +1,10 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-from pipeline.config import EXCERPT_CHARS, MAX_ISSUES, MODEL, WINDOW_DAYS
+from pipeline.config import EXCERPT_CHARS, MAX_ISSUES, MAX_PRUNE, MODEL, WINDOW_DAYS
 
 Classifier = Callable[[list[dict]], tuple[dict[int, dict], list[int]]]
 
@@ -72,6 +72,7 @@ def update_state(
     since: datetime,
     limit: int | None = None,
     eligible_after: datetime | None = None,
+    repos: Collection[str] | None = None,
 ) -> tuple[dict, dict]:
     """Merge freshly fetched issues into state. Returns (new_state, stats).
 
@@ -79,10 +80,19 @@ def update_state(
     only if created inside the window (and after `eligible_after`, used to keep the first
     backfill short). The watermark advances to `now` only when every new issue was
     classified, so a failed or limited run is retried from the same point next time.
+
+    Stored issues that GitHub no longer returns are removed (see `gone_issues`). `repos` names
+    the repos this run fetched; it defaults to the repos seen in `fetched`.
     """
     by_key = {record_key(r["repo"], r["number"]): r for r in state["issues"]}
     cutoff = now - timedelta(days=WINDOW_DAYS)
     new_cutoff = max(cutoff, eligible_after) if eligible_after else cutoff
+
+    gone = gone_issues(by_key, fetched, since, repos)
+    prune_skipped = len(gone) if len(gone) > MAX_PRUNE else 0
+    if not prune_skipped:
+        for key in gone:
+            del by_key[key]
 
     new_items: list[tuple[str, dict]] = []
     refreshed = 0
@@ -133,9 +143,33 @@ def update_state(
         "failed": len(failed),
         "tokens": tokens,
         "kept": len(kept),
+        "removed": 0 if prune_skipped else len(gone),
+        "prune_skipped": prune_skipped,
         "complete": complete,
     }
     return new_state, stats
+
+
+def gone_issues(
+    by_key: dict[str, dict],
+    fetched: list[tuple[str, dict]],
+    since: datetime,
+    repos: Collection[str] | None = None,
+) -> list[str]:
+    """Keys of stored issues that GitHub should have returned but did not.
+
+    GitHub's `since` filter is on updated time, and an issue is always updated when it is
+    created, so every live issue created at or after `since` must be in the fetch. One that is
+    missing was deleted or transferred. Issues created before `since` may simply not have been
+    touched, so they are left alone, as are repos this run did not fetch.
+    """
+    fetched_repos = set(repos) if repos is not None else {repo for repo, _ in fetched}
+    seen = {record_key(repo, i["number"]) for repo, i in fetched}
+    return [
+        key
+        for key, r in by_key.items()
+        if r["repo"] in fetched_repos and key not in seen and parse_ts(r["created_at"]) >= since
+    ]
 
 
 def reclassify_state(
