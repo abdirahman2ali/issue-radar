@@ -61,10 +61,17 @@ jobs:
           LIMIT: ${{ inputs.limit }}
           SINCE_DAYS: ${{ inputs.since_days }}
           RECLASSIFY: ${{ inputs.reclassify }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           args=()
           if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
-          if [ -n "$SINCE_DAYS" ]; then args+=(--since-days "$SINCE_DAYS"); fi
+          if [ -n "$SINCE_DAYS" ]; then
+            args+=(--since-days "$SINCE_DAYS")
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            # The daily run looks back over the whole window so deletions of older issues are
+            # seen too. About 75 more GitHub API calls and no extra Jev calls.
+            args+=(--full-window)
+          fi
           if [ -n "$RECLASSIFY" ] && [ "$RECLASSIFY" != "none" ]; then args+=(--reclassify "$RECLASSIFY"); fi
           uv run python -m pipeline.triage --out data/triage.json "${args[@]}"
 
