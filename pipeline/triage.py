@@ -104,11 +104,21 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(stats))
         return 0 if stats["failed"] == 0 else 1
 
+    repos = args.repo or REPOS
+
     if args.dry_run:
         _, stats = update_state(
-            state, fetched, lambda batch: ({}, []), now, since, args.limit, eligible_after
+            state, fetched, lambda batch: ({}, []), now, since, args.limit, eligible_after, repos
         )
-        print(f"dry run: {stats['new']} new issues would be classified")
+        print(
+            f"dry run: {stats['new']} new issues would be classified, "
+            f"{stats['removed']} deleted issues would be removed"
+            + (
+                f" ({stats['prune_skipped']} found, over the safety limit)"
+                if stats["prune_skipped"]
+                else ""
+            )
+        )
         return 0
 
     from typesafe_sdk import TypeSafeClient
@@ -122,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             since,
             args.limit,
             eligible_after,
+            repos,
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

@@ -7,6 +7,9 @@ MODEL = "jev-latest"
 WINDOW_DAYS = 8
 BACKFILL_DAYS = WINDOW_DAYS  # a fresh state should cover the whole window, not part of it
 MAX_ISSUES = 2500
+# Deleted or transferred issues are removed from the data. If a run would remove more than this
+# many at once, assume the fetch came back incomplete and remove nothing.
+MAX_PRUNE = 25
 BODY_CHARS = 2000
 EXCERPT_CHARS = 300
 CONCURRENCY = 8
