@@ -21,6 +21,18 @@ def record_key(repo: str, number: int) -> str:
     return f"{repo}#{number}"
 
 
+def complete_days(now: datetime) -> dict[str, str]:
+    """First and last UTC calendar day that the window covers in full.
+
+    Today is still filling up, and the oldest day starts part way through (the window opens at
+    the time of day the job runs), so both are left out. The site shows only these days.
+    """
+    now = now.astimezone(timezone.utc)
+    first = (now - timedelta(days=WINDOW_DAYS)).date() + timedelta(days=1)
+    last = now.date() - timedelta(days=1)
+    return {"from": first.isoformat(), "through": last.isoformat()}
+
+
 def excerpt(body: str | None) -> str:
     text = re.sub(r"\s+", " ", body or "").strip()
     return text[:EXCERPT_CHARS]
@@ -110,6 +122,7 @@ def update_state(
         "generated_at": classified_at,
         "watermark": fmt_ts(now) if complete else (state.get("watermark") or fmt_ts(since)),
         "model": state.get("model", MODEL),
+        "complete_days": complete_days(now),
         "issues": kept,
     }
     stats = {
@@ -155,7 +168,12 @@ def reclassify_state(
         tokens += result["tokens"]
 
     fetched_keys = {record_key(repo, i["number"]) for repo, i in fetched}
-    new_state = {**state, "generated_at": ts, "issues": list(by_key.values())}
+    new_state = {
+        **state,
+        "generated_at": ts,
+        "complete_days": complete_days(now),
+        "issues": list(by_key.values()),
+    }
     stats = {
         "reclassified": len(results),
         "failed": len(failed),

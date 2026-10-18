@@ -32,7 +32,7 @@ issue-radar/
 | `triage.yml` | daily 06:17 UTC, manual | Classify new issues, publish `triage.json` to the `data` branch, then deploy the site. |
 | `deploy.yml` | after triage, push to main touching `site/`, manual | Build the site with the latest data and deploy to GitHub Pages. |
 
-Backfill: run `triage.yml` manually with `since_days` set to 1 to 7 to re-fetch a recent window. Already classified issues are never classified again.
+Backfill: run `triage.yml` manually with `since_days` set to 1 to 8 to re-fetch a recent window. Already classified issues are never classified again.
 
 Changing a question: after editing a question in `pipeline/config.py` (for example adding area options), run `triage.yml` manually with `reclassify` set to that question. It re-asks only that question for every issue in the window and overwrites just that answer. Each overwritten answer is stamped with the time and model under `reclassified` on the record, so mixed history stays traceable.
 
@@ -40,7 +40,7 @@ Changing a question: after editing a question in `pipeline/config.py` (for examp
 
 1. Fetch issues updated since the last run (PRs excluded).
 2. Classify only issues not seen before, once each.
-3. Keep a rolling 7-day `triage.json` on an orphan `data` branch.
+3. Keep a rolling 8-day `triage.json` on an orphan `data` branch. The board shows only the 7 complete UTC days in it (`complete_days` in the file), because today and the oldest day are partial.
 4. Build and deploy the site to GitHub Pages.
 5. MERGE new issues into `abdirahman_portfolio.support_triage_bronze.brz_issue_classifications`.
 

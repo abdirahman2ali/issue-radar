@@ -10,7 +10,7 @@ on:
         required: false
         default: ""
       since_days:
-        description: "Backfill: re-fetch issues from the last N days (1 to 7, blank for normal run)"
+        description: "Backfill: re-fetch issues from the last N days (1 to 8, blank for normal run)"
         required: false
         default: ""
       reclassify:

@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FILTERS,
   applyFilters,
+  completeRange,
   dailyCounts,
+  onlyCompleteDays,
   parseUrl,
   sortIssues,
   toSearch,
   toggle,
   type Filters,
 } from "./filters";
-import type { Issue } from "./types";
+import type { Issue, Triage } from "./types";
 
 function issue(n: number, over: Partial<Issue> = {}, urgent = 0.1, severity = 1): Issue {
   return {
@@ -119,5 +121,43 @@ describe("sorting and helpers", () => {
   it("toggles list membership", () => {
     expect(toggle(["a"], "b")).toEqual(["a", "b"]);
     expect(toggle(["a", "b"], "a")).toEqual(["b"]);
+  });
+});
+
+describe("complete days", () => {
+  const at = (day: string, hour = 10) => `${day}T${String(hour).padStart(2, "0")}:00:00Z`;
+  const issues = [
+    issue(1, { created_at: at("2026-10-10") }), // oldest, partial
+    issue(2, { created_at: at("2026-10-11") }),
+    issue(3, { created_at: at("2026-10-17", 23) }),
+    issue(4, { created_at: at("2026-10-18", 1) }), // today, still filling up
+  ];
+  const triage = (over: Partial<Triage> = {}): Triage => ({
+    generated_at: "2026-10-18T06:17:00Z",
+    watermark: null,
+    model: "jev",
+    issues,
+    ...over,
+  });
+
+  it("keeps only the days the pipeline says are complete", () => {
+    const t = triage({ complete_days: { from: "2026-10-11", through: "2026-10-17" } });
+    expect(onlyCompleteDays(t).map((i) => i.number)).toEqual([2, 3]);
+  });
+
+  it("falls back to hiding the day the data was generated when the field is missing", () => {
+    expect(completeRange(triage())).toEqual({ from: null, through: "2026-10-17" });
+    expect(onlyCompleteDays(triage()).map((i) => i.number)).toEqual([1, 2, 3]);
+  });
+
+  it("shows everything when there is no timestamp and no range", () => {
+    expect(onlyCompleteDays(triage({ generated_at: null })).map((i) => i.number)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("makes the daily chart start and end on complete days", () => {
+    const t = triage({ complete_days: { from: "2026-10-11", through: "2026-10-17" } });
+    const bars = dailyCounts(onlyCompleteDays(t));
+    expect(bars[0]?.key).toBe("2026-10-11");
+    expect(bars[bars.length - 1]?.key).toBe("2026-10-17");
   });
 });

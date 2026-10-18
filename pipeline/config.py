@@ -2,7 +2,9 @@ from typesafe_sdk import Choice, Noul, Score
 
 REPOS = ["anthropics/claude-code"]
 MODEL = "jev-latest"
-WINDOW_DAYS = 7
+# The board shows only complete UTC days, and the first and last day of a rolling window are
+# partial. 8 days kept means 7 complete days shown.
+WINDOW_DAYS = 8
 BACKFILL_DAYS = WINDOW_DAYS  # a fresh state should cover the whole window, not part of it
 MAX_ISSUES = 2500
 BODY_CHARS = 2000
