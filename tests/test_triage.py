@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from pipeline.config import BACKFILL_DAYS, WINDOW_DAYS
-from pipeline.triage import resolve_since, window_days
+from pipeline.triage import main, requested_since_days, resolve_since, window_days
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
 
@@ -39,3 +39,16 @@ def test_since_days_must_stay_inside_the_window(value):
 def test_since_days_accepts_window_bounds():
     assert window_days("1") == 1
     assert window_days(str(WINDOW_DAYS)) == WINDOW_DAYS
+
+
+def test_full_window_is_the_max_since_days():
+    assert requested_since_days(True, None) == WINDOW_DAYS
+    assert requested_since_days(False, 3) == 3
+    assert requested_since_days(False, None) is None
+    since, eligible_after = resolve_since({"watermark": "2026-10-16T06:00:00Z"}, NOW, WINDOW_DAYS)
+    assert since == NOW - timedelta(days=WINDOW_DAYS) and eligible_after is None
+
+
+def test_full_window_and_since_days_cannot_be_combined():
+    with pytest.raises(SystemExit):
+        main(["--full-window", "--since-days", "3", "--dry-run"])

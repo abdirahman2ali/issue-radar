@@ -37,6 +37,11 @@ def window_days(value: str) -> int:
     return days
 
 
+def requested_since_days(full_window: bool, since_days: int | None) -> int | None:
+    """`--full-window` means a fetch back over the whole stored window (`--since-days` at its max)."""
+    return WINDOW_DAYS if full_window else since_days
+
+
 def resolve_since(
     state: dict, now: datetime, since_days: int | None
 ) -> tuple[datetime, datetime | None]:
@@ -58,10 +63,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=Path("data/triage.json"))
     parser.add_argument("--repo", action="append", help="repo to fetch (default: config REPOS)")
     parser.add_argument("--limit", type=int, help="classify at most N new issues (testing)")
-    parser.add_argument(
+    lookback = parser.add_mutually_exclusive_group()
+    lookback.add_argument(
         "--since-days",
         type=window_days,
         help=f"re-fetch issues from the last N days (1 to {WINDOW_DAYS}), ignoring the watermark",
+    )
+    lookback.add_argument(
+        "--full-window",
+        action="store_true",
+        help="re-fetch the whole stored window, ignoring the watermark. Also spots issues "
+        "deleted on GitHub, which a fetch from the watermark cannot see. Used by the daily run.",
     )
     parser.add_argument(
         "--reclassify",
@@ -75,7 +87,9 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.now(timezone.utc)
     state = load_state(args.out)
     state.setdefault("model", MODEL)
-    since, eligible_after = resolve_since(state, now, args.since_days)
+    since, eligible_after = resolve_since(
+        state, now, requested_since_days(args.full_window, args.since_days)
+    )
     if args.reclassify:
         # Bodies are not stored, so re-fetch the whole window to get the text again.
         since, eligible_after = now - timedelta(days=WINDOW_DAYS), None
