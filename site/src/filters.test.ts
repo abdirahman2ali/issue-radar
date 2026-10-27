@@ -140,9 +140,9 @@ describe("complete days", () => {
     ...over,
   });
 
-  it("keeps only the days the pipeline says are complete", () => {
+  it("starts at the first complete day and includes the partial day of the run", () => {
     const t = triage({ complete_days: { from: "2026-10-11", through: "2026-10-17" } });
-    expect(onlyCompleteDays(t).map((i) => i.number)).toEqual([2, 3]);
+    expect(onlyCompleteDays(t).map((i) => i.number)).toEqual([2, 3, 4]);
   });
 
   it("falls back to hiding the day the data was generated when the field is missing", () => {
@@ -154,10 +154,10 @@ describe("complete days", () => {
     expect(onlyCompleteDays(triage({ generated_at: null })).map((i) => i.number)).toEqual([1, 2, 3, 4]);
   });
 
-  it("makes the daily chart start and end on complete days", () => {
+  it("makes the daily chart start on a complete day and end on the day of the run", () => {
     const t = triage({ complete_days: { from: "2026-10-11", through: "2026-10-17" } });
     const bars = dailyCounts(onlyCompleteDays(t));
     expect(bars[0]?.key).toBe("2026-10-11");
-    expect(bars[bars.length - 1]?.key).toBe("2026-10-17");
+    expect(bars[bars.length - 1]?.key).toBe("2026-10-18");
   });
 });

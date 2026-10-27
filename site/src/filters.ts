@@ -103,13 +103,16 @@ function previousDay(day: string): string {
 }
 
 /**
- * The complete UTC days to show. The pipeline writes `complete_days`. For older data without it,
- * fall back to hiding the day the data was generated, which is still filling up.
+ * The UTC days to show. The pipeline writes `complete_days`; the board starts there (the oldest
+ * day is partial) but runs through the day the data was generated, which is still filling up.
+ * For older data without the field, hide that partial day as before.
  */
 export function completeRange(triage: Triage): DayRange {
-  if (triage.complete_days) return triage.complete_days;
-  const through = triage.generated_at ? previousDay(triage.generated_at.slice(0, 10)) : null;
-  return { from: null, through };
+  const generated = triage.generated_at ? triage.generated_at.slice(0, 10) : null;
+  if (triage.complete_days) {
+    return { from: triage.complete_days.from, through: generated ?? triage.complete_days.through };
+  }
+  return { from: null, through: generated ? previousDay(generated) : null };
 }
 
 /** Issues created inside the complete days only, so every day and every total is comparable. */

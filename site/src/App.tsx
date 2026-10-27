@@ -144,8 +144,8 @@ export function App() {
           </p>
           {range?.from && range.through && (
             <p className="muted">
-              Complete UTC days only: {shortDay(range.from)} to {shortDay(range.through)}. Today is
-              left out until it ends.
+              UTC days: {shortDay(range.from)} to {shortDay(range.through)}. {shortDay(range.through)} is
+              still filling up.
             </p>
           )}
         </div>

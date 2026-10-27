@@ -40,7 +40,7 @@ Changing a question: after editing a question in `pipeline/config.py` (for examp
 
 1. Fetch issues updated since the last run (PRs excluded).
 2. Classify only issues not seen before, once each. Stored issues that GitHub no longer returns (deleted or transferred) are removed, unless more than 25 would go at once, which is treated as an incomplete fetch and removes nothing.
-3. Keep a rolling 8-day `triage.json` on an orphan `data` branch. The board shows only the 7 complete UTC days in it (`complete_days` in the file), because today and the oldest day are partial.
+3. Keep a rolling 8-day `triage.json` on an orphan `data` branch. The board starts at the first complete day (`complete_days.from`, since the oldest day is partial) and runs through the day of the last run, which is still filling up.
 4. Build and deploy the site to GitHub Pages.
 5. MERGE new issues into `abdirahman_portfolio.support_triage_bronze.brz_issue_classifications`.
 
