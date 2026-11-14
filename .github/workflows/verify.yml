@@ -1,0 +1,107 @@
+name: Verify production
+
+# After a repair PR merges, re-run the workflow it fixed, then check the live site. If production
+# is unhealthy, open a revert PR (auto-merge on) and an issue so a human is told.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Re-run, then check production
+    if: >-
+      ${{ vars.AGENT_ENABLED == 'true'
+      && (github.event_name == 'workflow_dispatch'
+      || (github.event.pull_request.merged == true
+      && startsWith(github.event.pull_request.head.ref, 'repair/'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: write
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Re-run the workflow that was repaired
+        id: rerun
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$HEAD_REF" in
+            repair/daily-triage-*) wf=triage.yml ;;
+            repair/deploy-site-*) wf=deploy.yml ;;
+            *) wf="" ;;
+          esac
+          if [ -z "$wf" ]; then echo "Nothing to re-run for '$HEAD_REF'."; exit 0; fi
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run "$wf" --repo "$GITHUB_REPOSITORY_NAME" --ref main
+          id=""
+          for _ in $(seq 1 12); do
+            sleep 10
+            id="$(gh run list --repo "$GITHUB_REPOSITORY_NAME" --workflow "$wf" \
+              --event workflow_dispatch --limit 5 --json databaseId,createdAt \
+              --jq "[.[] | select(.createdAt >= \"$started\")][0].databaseId // empty")"
+            [ -n "$id" ] && break
+          done
+          if [ -z "$id" ]; then echo "Could not find the re-run."; exit 1; fi
+          # Failure here is fine, the production check below decides.
+          gh run watch "$id" --repo "$GITHUB_REPOSITORY_NAME" --exit-status || true
+
+      - name: Check production
+        id: prod
+        run: python3 scripts/check_production.py | tee /tmp/prod.txt
+
+      - name: Create a scoped GitHub App token
+        if: ${{ failure() && steps.prod.conclusion == 'failure' }}
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Revert and tell a human
+        if: ${{ failure() && steps.prod.conclusion == 'failure' }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          {
+            echo "Production is unhealthy after $PR_URL merged:"
+            echo
+            cat /tmp/prod.txt
+          } > /tmp/issue.md
+          if [ -n "$MERGE_SHA" ]; then
+            git config user.name "issue-radar-repair-agent"
+            git config user.email "repair-agent@users.noreply.github.com"
+            branch="revert/$(git rev-parse --short "$MERGE_SHA")"
+            git switch -c "$branch" origin/main
+            git revert --no-edit "$MERGE_SHA"
+            B64="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            echo "::add-mask::$B64"
+            git -c "http.extraheader=AUTHORIZATION: basic $B64" push origin "$branch"
+            url="$(gh pr create --repo "$GITHUB_REPOSITORY_NAME" --base main --head "$branch" \
+              --title "Revert: $HEAD_REF" --body-file /tmp/issue.md)"
+            gh pr merge "$url" --auto --squash
+            echo "Revert PR: $url" >> /tmp/issue.md
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY_NAME" \
+            --title "Production unhealthy after repair" --body-file /tmp/issue.md
