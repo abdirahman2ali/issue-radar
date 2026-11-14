@@ -52,3 +52,46 @@ def test_full_window_is_the_max_since_days():
 def test_full_window_and_since_days_cannot_be_combined():
     with pytest.raises(SystemExit):
         main(["--full-window", "--since-days", "3", "--dry-run"])
+
+
+def test_pipeline_output_never_contains_a_secret():
+    """End to end through update_state with a fake classifier, no network and no Jev.
+
+    A public issue that pastes an API key must not reach the JSON that is pushed to the data
+    branch, where GitHub push protection would reject it and stop the daily run.
+    """
+    import json
+    import re
+
+    from pipeline.merge import empty_state, update_state
+
+    key = "sk-ant-api03-" + "Zy9Xw8Vu" * 6
+    gh_key = "ghp_" + "a1B2c3D4e5" * 4
+    issue = {
+        "id": 1,
+        "number": 7,
+        "title": f"crash with {key}",
+        "state": "open",
+        "html_url": "https://github.com/anthropics/claude-code/issues/7",
+        "user": {"login": "someone"},
+        "labels": [],
+        "comments": 0,
+        "created_at": "2026-10-17T10:00:00Z",
+        "updated_at": "2026-10-17T10:00:00Z",
+        "body": f"export ANTHROPIC_API_KEY={key}\nGITHUB_TOKEN={gh_key}",
+    }
+
+    def fake_classify(batch):
+        return {i["id"]: {"answers": {}, "tokens": 0, "model": "fake"} for i in batch}, []
+
+    state, stats = update_state(
+        empty_state(),
+        [("anthropics/claude-code", issue)],
+        fake_classify,
+        NOW,
+        NOW - timedelta(days=1),
+    )
+    assert stats["classified"] == 1
+    blob = json.dumps(state)
+    assert key not in blob and gh_key not in blob
+    assert not re.search(r"sk-ant-|ghp_", blob)
