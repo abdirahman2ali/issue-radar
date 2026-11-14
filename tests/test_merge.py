@@ -150,8 +150,12 @@ def test_excerpt_and_title_redact_secrets():
     assert "[redacted]" in excerpt(f"my key is {key} help")
     assert excerpt("plain text stays") == "plain text stays"
     issue = {
-        "number": 1, "title": f"bug {key}", "state": "open", "created_at": "2026-11-01T00:00:00Z",
-        "updated_at": "2026-11-01T00:00:00Z", "body": key,
+        "number": 1,
+        "title": f"bug {key}",
+        "state": "open",
+        "created_at": "2026-11-01T00:00:00Z",
+        "updated_at": "2026-11-01T00:00:00Z",
+        "body": key,
     }
     out = github_fields("a/b", issue)
     assert key not in out["title"] and key not in out["excerpt"]
