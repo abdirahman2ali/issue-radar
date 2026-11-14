@@ -15,17 +15,23 @@ concurrency:
 
 jobs:
   python:
-    name: Python lint and tests
+    name: Python lint and tests (${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
-      - run: uv sync --python 3.12 --frozen
+      # Fails if uv.lock is out of date with pyproject.toml.
+      - run: uv lock --check
+      - run: uv sync --python ${{ matrix.python }} --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest -q
@@ -38,11 +44,11 @@ jobs:
       run:
         working-directory: site
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
@@ -58,18 +64,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
+
+  shellcheck:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - run: docker run --rm -v "$PWD:/mnt" --workdir /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
+
+  zizmor:
+    name: Workflow security
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      # Offline so it needs no token. Fails on findings of medium severity or higher.
+      - run: uvx zizmor@1.32.0 --offline --min-severity medium .github/workflows
 
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -88,7 +119,7 @@ jobs:
   ci:
     name: ci
     if: ${{ always() }}
-    needs: [python, site, actionlint, secrets]
+    needs: [python, site, actionlint, shellcheck, zizmor, secrets]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded
