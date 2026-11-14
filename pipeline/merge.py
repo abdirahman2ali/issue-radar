@@ -33,9 +33,22 @@ def complete_days(now: datetime) -> dict[str, str]:
     return {"from": first.isoformat(), "through": last.isoformat()}
 
 
+# Public issues sometimes contain pasted credentials. GitHub push protection blocks the data
+# push if one lands in triage.json, so scrub them before they are stored.
+SECRET_RE = re.compile(
+    r"sk-ant-[A-Za-z0-9_\-]{8,}"
+    r"|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"
+    r"|sk-[A-Za-z0-9_\-]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9\-]{10,}"
+)
+
+
+def redact(text: str) -> str:
+    return SECRET_RE.sub("[redacted]", text)
+
+
 def excerpt(body: str | None) -> str:
     text = re.sub(r"\s+", " ", body or "").strip()
-    return text[:EXCERPT_CHARS]
+    return redact(text[:EXCERPT_CHARS])
 
 
 def safe_issue_url(url: str | None) -> str:
@@ -48,7 +61,7 @@ def github_fields(repo: str, issue: dict) -> dict:
     return {
         "repo": repo,
         "number": issue["number"],
-        "title": issue["title"],
+        "title": redact(issue["title"]),
         "url": safe_issue_url(issue.get("html_url")),
         "author": (issue.get("user") or {}).get("login"),
         "state": issue["state"],

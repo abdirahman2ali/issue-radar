@@ -140,3 +140,18 @@ def test_serialize_answers_shapes():
     assert out["category"]["choice"] == "bug"
     assert out["severity"]["probabilities"] == {"1": 0.1, "2": 0.9}
     assert out["is_urgent"] == {"noul": 0.2}
+
+
+def test_excerpt_and_title_redact_secrets():
+    from pipeline.merge import excerpt, github_fields
+
+    key = "sk-ant-api03-" + "A1b2C3d4" * 6
+    assert key not in excerpt(f"my key is {key} help")
+    assert "[redacted]" in excerpt(f"my key is {key} help")
+    assert excerpt("plain text stays") == "plain text stays"
+    issue = {
+        "number": 1, "title": f"bug {key}", "state": "open", "created_at": "2026-11-01T00:00:00Z",
+        "updated_at": "2026-11-01T00:00:00Z", "body": key,
+    }
+    out = github_fields("a/b", issue)
+    assert key not in out["title"] and key not in out["excerpt"]
