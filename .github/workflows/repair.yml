@@ -122,7 +122,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Read only token. The agent cannot push or open PRs.
           github_token: ${{ github.token }}
           prompt: >-
