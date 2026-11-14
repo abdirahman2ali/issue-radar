@@ -8,7 +8,9 @@ One-time setup (the agent stays off until step 4):
 1. Create a GitHub App for this repo only, with Contents, Pull requests and Issues set to
    read and write. Install it on this repo. Add repo variable `AGENT_APP_ID` and secret
    `AGENT_APP_PRIVATE_KEY`. An App token is needed so the PRs it opens trigger CI.
-2. Add secret `ANTHROPIC_API_KEY`.
+2. On your laptop run `claude setup-token`, then add the result as secret
+   `CLAUDE_CODE_OAUTH_TOKEN`. The agent then uses your Claude subscription limits, not API
+   billing. The laptop is only needed for this step. Everything else runs on GitHub's servers.
 3. Repo settings: enable "Allow auto-merge". Keep `ci` as the required check.
 4. Add repo variable `AGENT_ENABLED` = `true`. Set it to anything else to stop the agent.
 
