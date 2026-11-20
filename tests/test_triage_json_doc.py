@@ -8,14 +8,19 @@ security wording is present. It makes no network calls.
 import copy
 import io
 import json
+import os
 import re
+import runpy
 import shlex
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
 import pytest
+
+from pipeline.merge import empty_state, github_fields, update_state
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
@@ -182,11 +187,67 @@ def test_every_checked_field_is_named_in_the_readme():
     assert missing == []
 
 
+# --- a record built by the real pipeline code matches the documented shape -------------------
+
+GITHUB_FIELDS = {"repo", "number", "title", "url", "author", "state", "labels", "comments"} | {
+    "created_at",
+    "updated_at",
+    "excerpt",
+}
+CLASSIFIED_FIELDS = {"answers", "model", "classified_at"}
+NOW = datetime(2026, 1, 3, 6, 17, tzinfo=timezone.utc)
+
+
+def raw_github_issue(login: str | None) -> dict:
+    return {
+        "id": 1,
+        "number": 7,
+        "title": "Synthetic title",
+        "html_url": "https://github.com/example-org/example-repo/issues/7",
+        "user": {"login": login} if login else None,
+        "state": "open",
+        "labels": [{"name": "bug"}],
+        "comments": 2,
+        "created_at": "2026-01-02T03:04:05Z",
+        "updated_at": "2026-01-02T04:05:06Z",
+        "body": "Synthetic body.",
+    }
+
+
+def build_state_through_pipeline(login: str | None) -> dict:
+    """Run one issue through the real merge code, with the model's answers faked."""
+    answers = load_fixture()["issues"][0]["answers"]
+
+    def classify(issues: list[dict]) -> tuple[dict[int, dict], list[int]]:
+        return {
+            i["id"]: {"answers": answers, "tokens": 0, "model": "test-model-1"} for i in issues
+        }, []
+
+    state, _ = update_state(
+        empty_state(), [("example-org/example-repo", raw_github_issue(login))], classify, NOW, NOW
+    )
+    return state
+
+
+def test_github_fields_are_the_documented_ones():
+    assert set(github_fields("example-org/example-repo", raw_github_issue("x"))) == GITHUB_FIELDS
+    assert GITHUB_FIELDS | CLASSIFIED_FIELDS == set(ISSUE_FIELDS)
+
+
+@pytest.mark.parametrize("login", ["example-user", None])
+def test_a_record_built_by_the_pipeline_matches_the_documented_shape(login):
+    state = build_state_through_pipeline(login)
+    assert len(state["issues"]) == 1
+    assert state["issues"][0]["author"] == login
+    assert check_document(state) == []
+
+
 # --- the README examples run as written ------------------------------------------------------
 
 
-def test_python_example_runs_against_the_fixture(capsys):
-    code = code_block(use_the_data_section(), "python")
+def test_python_example_runs_against_the_fixture(capsys, tmp_path):
+    script = tmp_path / "example.py"
+    script.write_text(code_block(use_the_data_section(), "python"))
     payload = FIXTURE.read_bytes()
     seen: list[str] = []
 
@@ -196,14 +257,15 @@ def test_python_example_runs_against_the_fixture(capsys):
         return io.BytesIO(payload)
 
     with mock.patch("urllib.request.urlopen", fake_urlopen):
-        # Running the README example is the point of this test.
-        exec(compile(code, "README example", "exec"), {"__name__": "example"})  # noqa: S102
+        runpy.run_path(str(script))
     assert seen == ["https://issue-radar.dev/triage.json"]
     assert capsys.readouterr().out.strip() == "1"
 
 
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is not installed")
 def test_jq_example_runs_against_the_fixture():
+    if shutil.which("jq") is None:
+        assert not os.environ.get("CI"), "jq must be installed in CI"
+        pytest.skip("jq is not installed")
     lines = code_block(use_the_data_section(), "sh").splitlines()
     command = shlex.split(next(ln for ln in lines if ln.startswith("jq ")))
     assert command[-1] == "triage.json"

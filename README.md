@@ -93,7 +93,7 @@ Only the current file is served. History is not kept: the `data` branch is force
 
 **Treat every string as untrusted.** `title`, `excerpt`, `labels` and `author` come from public GitHub issues that anyone can file. Do not render them as HTML, do not interpolate them into a shell command, and do not pass them to an LLM that has tool access unless you isolate them first. `title` and `excerpt` are only scrubbed for a few token formats (`sk-ant-`, `gh*_`, `github_pat_`, `sk-`, `AKIA`, `xox*`). They can still contain other secrets or personal data, and nothing here guarantees otherwise.
 
-**Stability.** Fields may be added. Existing field names and types will not change without notice. `tests/test_triage_json_doc.py` checks this table against a synthetic sample file.
+**Stability.** Fields may be added. Existing field names and types will not change without notice. `tests/test_triage_json_doc.py` checks the field names and types against a synthetic sample file and against a record built by the pipeline code. It does not parse this table, so keep the two in step by hand.
 
 Top level:
 
@@ -101,7 +101,7 @@ Top level:
 |---|---|---|
 | `generated_at`, `watermark` | string or null | UTC timestamps; null before the first run |
 | `model` | string | Model that classified new issues |
-| `complete_days` | `{from, through}`, optional | First and last UTC day (`YYYY-MM-DD`) covered in full. Missing in old files |
+| `complete_days` | `{from, through}`, optional | First and last UTC day (`YYYY-MM-DD`) covered in full. Treat it as optional |
 | `issues` | list | One record per issue |
 
 Each record in `issues`:
