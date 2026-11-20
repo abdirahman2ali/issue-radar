@@ -44,11 +44,12 @@ function applyTheme(theme: Theme) {
   }
 }
 
-function Stat({ label, value, hint }: { label: string; value: number; hint: string }) {
+function Stat({ label, value, hint, note }: { label: string; value: number; hint: string; note?: string }) {
   return (
     <div className="stat" title={hint}>
       <span className="stat-value">{value.toLocaleString()}</span>
       <span className="stat-label">{label}</span>
+      {note && <span className="stat-label">{note}</span>}
     </div>
   );
 }
@@ -101,6 +102,10 @@ export function App() {
   const issues = useMemo(() => (triage ? onlyCompleteDays(triage) : []), [triage]);
   const range = triage ? completeRange(triage) : null;
   const shown = useMemo(() => sortIssues(applyFilters(issues, filters), filters.sort), [issues, filters]);
+  const hidden = useMemo(
+    () => (filters.hideRepeat ? applyFilters(issues, { ...filters, hideRepeat: false }).length - shown.length : 0),
+    [issues, filters, shown],
+  );
   const categoryBars = useMemo(
     () => countBy(applyFilters(issues, filters, "categories"), (i) => i.answers.category.choice, CATEGORIES),
     [issues, filters],
@@ -160,7 +165,12 @@ export function App() {
       </header>
 
       <section className="stats" aria-label="Summary of current filters">
-        <Stat label="Issues" value={shown.length} hint="Issues matching the current filters" />
+        <Stat
+          label="Issues"
+          value={shown.length}
+          hint="Issues matching the current filters"
+          note={filters.hideRepeat ? `${hidden.toLocaleString()} hidden` : undefined}
+        />
         <Stat
           label="Bugs"
           value={shown.filter((i) => i.answers.category.choice === "bug").length}
@@ -205,6 +215,7 @@ export function App() {
 
       <p className="count" aria-live="polite">
         Showing {Math.min(visible, shown.length)} of {shown.length} issues
+        {filters.hideRepeat ? `, ${hidden.toLocaleString()} hidden` : ""}
       </p>
       <IssueList
         issues={shown}
