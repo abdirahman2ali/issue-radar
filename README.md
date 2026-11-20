@@ -36,6 +36,47 @@ Backfill: run `triage.yml` manually with `since_days` set to 1 to 8 to re-fetch 
 
 Changing a question: after editing a question in `pipeline/config.py` (for example adding area options), run `triage.yml` manually with `reclassify` set to that question. It re-asks only that question for every issue in the window and overwrites just that answer. Each overwritten answer is stamped with the time and model under `reclassified` on the record, so mixed history stays traceable.
 
+## Run CI locally
+
+`.github/workflows/ci.yml` is the source of truth. This section mirrors it and can drift, so check the workflow if a command here disagrees with it. These commands run repo code (`npm ci` scripts, pytest), so use a trusted checkout, not an unreviewed fork. You need [uv](https://docs.astral.sh/uv/), Node 22 (the version CI uses) and Docker.
+
+Run from the repo root.
+
+**python** (CI runs Python 3.10 and 3.12; pass the version you want to `--python`):
+
+```sh
+uv lock --check
+uv sync --python 3.12 --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
+```
+
+**site**:
+
+```sh
+cd site
+npm ci
+npm test
+npm run build
+```
+
+**zizmor** (workflow security):
+
+```sh
+uvx zizmor@1.32.0 --offline --min-severity medium .github/workflows
+```
+
+**actionlint**, **shellcheck** and **secrets** (gitleaks) run in Docker. Copied from `ci.yml`, not verified locally:
+
+```sh
+docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
+docker run --rm -v "$PWD:/mnt" --workdir /mnt koalaman/shellcheck:v0.11.0 scripts/*.sh
+docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2 git /repo --redact --verbose
+```
+
+The gitleaks scan reads the full git history, so use a full clone, not a shallow one.
+
 ## Data flow
 
 1. Fetch issues updated since the last run (PRs excluded).
