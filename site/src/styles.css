@@ -349,6 +349,20 @@ h2 {
   color: var(--ink-2);
 }
 
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 100%;
+}
+
+.check input {
+  margin-top: 2px;
+  flex: none;
+}
+
 .chip {
   font-size: 13px;
   padding: 4px 10px;

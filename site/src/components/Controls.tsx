@@ -1,4 +1,4 @@
-import { SORTS, toggle, type Filters, type SortKey, type StateFilter } from "../filters";
+import { REPEAT_REPORTER_THRESHOLD, SORTS, toggle, type Filters, type SortKey, type StateFilter } from "../filters";
 import { FLAGS, SEVERITY_LABELS, type FlagKey } from "../types";
 
 interface Props {
@@ -79,6 +79,14 @@ export function Controls({ filters, onChange, onReset, activeCount }: Props) {
             );
           })}
         </div>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={filters.hideRepeat}
+            onChange={(e) => onChange({ hideRepeat: e.target.checked })}
+          />
+          <span>Hide reporters with {REPEAT_REPORTER_THRESHOLD} or more issues in the window</span>
+        </label>
         {activeCount > 0 && (
           <button type="button" className="link-btn" onClick={onReset}>
             Clear {activeCount} filter{activeCount === 1 ? "" : "s"}

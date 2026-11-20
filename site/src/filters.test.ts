@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FILTERS,
+  REPEAT_REPORTER_THRESHOLD,
+  activeFilterCount,
   applyFilters,
   completeRange,
   dailyCounts,
   onlyCompleteDays,
   parseUrl,
+  repeatReporters,
   sortIssues,
   toSearch,
   toggle,
@@ -159,5 +162,88 @@ describe("complete days", () => {
     const bars = dailyCounts(onlyCompleteDays(t));
     expect(bars[0]?.key).toBe("2026-10-11");
     expect(bars[bars.length - 1]?.key).toBe("2026-10-17");
+  });
+});
+
+describe("hide repeat reporters", () => {
+  const T = REPEAT_REPORTER_THRESHOLD;
+  const by = (author: string | null, count: number, start = 1000): Issue[] =>
+    Array.from({ length: count }, (_, k) => issue(start + k, { author }));
+  const hide = f({ hideRepeat: true });
+
+  it("uses a threshold of 20", () => {
+    expect(T).toBe(20);
+  });
+
+  it("is off by default and shows everything when off", () => {
+    const issues = [...by("busy", T + 1), ...by("quiet", 2, 2000)];
+    expect(DEFAULT_FILTERS.hideRepeat).toBe(false);
+    expect(applyFilters(issues, DEFAULT_FILTERS)).toHaveLength(issues.length);
+  });
+
+  it("hides authors above and exactly at the threshold, keeps just below", () => {
+    const issues = [
+      ...by("over", T + 1, 1000),
+      ...by("exact", T, 2000),
+      ...by("below", T - 1, 3000),
+    ];
+    const kept = applyFilters(issues, hide);
+    expect(kept).toHaveLength(T - 1);
+    expect(kept.every((i) => i.author === "below")).toBe(true);
+  });
+
+  it("handles empty data", () => {
+    expect(applyFilters([], hide)).toEqual([]);
+    expect(repeatReporters([])).toEqual(new Set());
+  });
+
+  it("never hides or groups null, empty or blank authors", () => {
+    const issues = [...by(null, T + 5, 1000), ...by("", T, 2000), ...by("  ", T, 3000)];
+    expect(applyFilters(issues, hide)).toHaveLength(issues.length);
+    expect(repeatReporters(issues).size).toBe(0);
+  });
+
+  it("counts __proto__ and constructor like any other name", () => {
+    const issues = [
+      ...by("__proto__", T, 1000),
+      ...by("constructor", T, 2000),
+      ...by("toString", T - 1, 3000),
+      ...by("other", 1, 4000),
+    ];
+    expect(repeatReporters(issues)).toEqual(new Set(["__proto__", "constructor"]));
+    const kept = applyFilters(issues, hide);
+    expect(kept.map((i) => i.author)).toEqual([...Array(T - 1).fill("toString"), "other"]);
+  });
+
+  it("hidden count equals the number of issues removed", () => {
+    const issues = [...by("busy", T, 1000), ...by("quiet", 3, 2000)];
+    const removed = applyFilters(issues, f({ hideRepeat: false })).length - applyFilters(issues, hide).length;
+    expect(removed).toBe(T);
+  });
+
+  it("counts authors on the full set, not the other-filtered subset", () => {
+    const issues = [
+      ...by("busy", T - 1, 1000),
+      issue(2000, { author: "busy", state: "closed" }),
+      ...by("quiet", 2, 3000),
+    ];
+    const kept = applyFilters(issues, f({ hideRepeat: true, state: "closed" }));
+    expect(kept).toEqual([]);
+    expect(applyFilters(issues, f({ hideRepeat: true, q: "Issue 30" })).every((i) => i.author === "quiet")).toBe(true);
+  });
+
+  it("round trips through the URL and counts as an active filter", () => {
+    expect(toSearch(hide, null)).toBe("?repeat=hide");
+    expect(parseUrl("?repeat=hide").filters.hideRepeat).toBe(true);
+    expect(toSearch(DEFAULT_FILTERS, null)).toBe("");
+    expect(activeFilterCount(hide)).toBe(1);
+    expect(activeFilterCount(DEFAULT_FILTERS)).toBe(0);
+  });
+
+  it("treats any other repeat value as off, including prototype names", () => {
+    for (const v of ["", "show", "true", "1", "HIDE", "__proto__", "constructor"]) {
+      expect(parseUrl(`?repeat=${v}`).filters.hideRepeat).toBe(false);
+    }
+    expect(parseUrl("").filters.hideRepeat).toBe(false);
   });
 });

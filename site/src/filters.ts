@@ -21,7 +21,11 @@ export interface Filters {
   day: string | null;
   state: StateFilter;
   sort: SortKey;
+  hideRepeat: boolean;
 }
+
+/** A reporter with at least this many issues in the window counts as a repeat reporter. */
+export const REPEAT_REPORTER_THRESHOLD = 20;
 
 export const SORTS: { key: SortKey; label: string }[] = [
   { key: "urgency", label: "Most urgent" },
@@ -39,6 +43,7 @@ export const DEFAULT_FILTERS: Filters = {
   day: null,
   state: "all",
   sort: "urgency",
+  hideRepeat: false,
 };
 
 const FLAG_KEYS = FLAGS.map((f) => f.key);
@@ -65,6 +70,7 @@ export function parseUrl(search: string): { filters: Filters; issue: number | nu
       day: day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null,
       state: state === "open" || state === "closed" ? state : "all",
       sort: SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : DEFAULT_FILTERS.sort,
+      hideRepeat: p.get("repeat") === "hide",
     },
     issue: Number.isInteger(issue) && issue > 0 ? issue : null,
   };
@@ -80,6 +86,7 @@ export function toSearch(filters: Filters, issue: number | null): string {
   if (filters.day) p.set("day", filters.day);
   if (filters.state !== "all") p.set("state", filters.state);
   if (filters.sort !== DEFAULT_FILTERS.sort) p.set("sort", filters.sort);
+  if (filters.hideRepeat) p.set("repeat", "hide");
   if (issue) p.set("issue", String(issue));
   const s = p.toString();
   return s ? `?${s}` : "";
@@ -121,10 +128,29 @@ export function onlyCompleteDays(triage: Triage): Issue[] {
   });
 }
 
-/** Apply every filter except the one for `skip`, so a facet's own counts stay selectable. */
+/**
+ * Authors with at least `threshold` issues in `issues`. Counted in a Map keyed by the exact string,
+ * so names like `__proto__` behave like any other. Missing or blank authors are never counted.
+ */
+export function repeatReporters(issues: Issue[], threshold = REPEAT_REPORTER_THRESHOLD): Set<string> {
+  const counts = new Map<string, number>();
+  for (const i of issues) {
+    if (i.author && i.author.trim()) counts.set(i.author, (counts.get(i.author) ?? 0) + 1);
+  }
+  const repeat = new Set<string>();
+  for (const [author, n] of counts) if (n >= threshold) repeat.add(author);
+  return repeat;
+}
+
+/**
+ * Apply every filter except the one for `skip`, so a facet's own counts stay selectable. */
 export function applyFilters(issues: Issue[], f: Filters, skip?: Facet): Issue[] {
   const q = f.q.trim().toLowerCase();
+  // Counted on the full set passed in, not the filtered subset, so a reporter is hidden or not
+  // regardless of the other filters.
+  const repeat = f.hideRepeat ? repeatReporters(issues) : null;
   return issues.filter((i) => {
+    if (repeat && i.author && repeat.has(i.author)) return false;
     if (q && !`${i.title} ${i.excerpt} #${i.number} ${i.author ?? ""}`.toLowerCase().includes(q)) {
       return false;
     }
@@ -193,6 +219,7 @@ export function activeFilterCount(f: Filters): number {
     (f.minSeverity ? 1 : 0) +
     f.flags.length +
     (f.day ? 1 : 0) +
-    (f.state !== "all" ? 1 : 0)
+    (f.state !== "all" ? 1 : 0) +
+    (f.hideRepeat ? 1 : 0)
   );
 }
