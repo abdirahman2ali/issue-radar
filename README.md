@@ -55,10 +55,7 @@ uv run pytest -q
 **site**:
 
 ```sh
-cd site
-npm ci
-npm test
-npm run build
+(cd site && npm ci && npm test && npm run build)
 ```
 
 **zizmor** (workflow security):
