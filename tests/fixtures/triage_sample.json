@@ -1,0 +1,223 @@
+{
+ "generated_at": "2026-01-03T06:17:00Z",
+ "watermark": "2026-01-03T06:17:00Z",
+ "model": "test-model-1",
+ "complete_days": {
+  "from": "2025-12-27",
+  "through": "2026-01-02"
+ },
+ "issues": [
+  {
+   "repo": "example-org/example-repo",
+   "number": 1,
+   "title": "Synthetic issue 1",
+   "url": "https://github.com/example-org/example-repo/issues/1",
+   "author": "example-user",
+   "state": "open",
+   "labels": [
+    "bug"
+   ],
+   "comments": 1,
+   "created_at": "2026-01-02T03:04:05Z",
+   "updated_at": "2026-01-02T04:05:06Z",
+   "excerpt": "Synthetic excerpt for issue 1.",
+   "answers": {
+    "category": {
+     "choice": "bug",
+     "confidence": 0.9,
+     "probabilities": {
+      "bug": 0.9,
+      "feature_request": 0.1,
+      "question": 0.0,
+      "docs": 0.0,
+      "other": 0.0
+     }
+    },
+    "area": {
+     "choice": "mcp_tools",
+     "confidence": 0.9,
+     "probabilities": {
+      "cli_terminal": 0.1,
+      "ide_integration": 0.0,
+      "desktop_app": 0.0,
+      "web_cloud": 0.0,
+      "mcp_tools": 0.9,
+      "model_behavior": 0.0,
+      "permissions_security": 0.0,
+      "performance": 0.0,
+      "auth_billing": 0.0,
+      "install_update": 0.0,
+      "other": 0.0
+     }
+    },
+    "severity": {
+     "score": 1.5,
+     "confidence": 0.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.4,
+      "2": 0.4,
+      "3": 0.1
+     }
+    },
+    "is_urgent": {
+     "noul": 0.2
+    },
+    "is_regression": {
+     "noul": 0.7
+    },
+    "has_repro": {
+     "noul": 0.5
+    },
+    "needs_info": {
+     "noul": 0.1
+    }
+   },
+   "model": "test-model-1",
+   "classified_at": "2026-01-02T05:00:00Z"
+  },
+  {
+   "repo": "example-org/example-repo",
+   "number": 2,
+   "title": "Synthetic issue 2",
+   "url": "https://github.com/example-org/example-repo/issues/2",
+   "author": null,
+   "state": "open",
+   "labels": [],
+   "comments": 2,
+   "created_at": "2026-01-02T03:04:05Z",
+   "updated_at": "2026-01-02T04:05:06Z",
+   "excerpt": "Synthetic excerpt for issue 2.",
+   "answers": {
+    "category": {
+     "choice": "question",
+     "confidence": 0.9,
+     "probabilities": {
+      "bug": 0.1,
+      "feature_request": 0.0,
+      "question": 0.9,
+      "docs": 0.0,
+      "other": 0.0
+     }
+    },
+    "area": {
+     "choice": "cli_terminal",
+     "confidence": 0.9,
+     "probabilities": {
+      "cli_terminal": 0.9,
+      "ide_integration": 0.1,
+      "desktop_app": 0.0,
+      "web_cloud": 0.0,
+      "mcp_tools": 0.0,
+      "model_behavior": 0.0,
+      "permissions_security": 0.0,
+      "performance": 0.0,
+      "auth_billing": 0.0,
+      "install_update": 0.0,
+      "other": 0.0
+     }
+    },
+    "severity": {
+     "score": 1.5,
+     "confidence": 0.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.4,
+      "2": 0.4,
+      "3": 0.1
+     }
+    },
+    "is_urgent": {
+     "noul": 0.2
+    },
+    "is_regression": {
+     "noul": 0.7
+    },
+    "has_repro": {
+     "noul": 0.5
+    },
+    "needs_info": {
+     "noul": 0.1
+    }
+   },
+   "model": "test-model-1",
+   "classified_at": "2026-01-02T05:00:00Z"
+  },
+  {
+   "repo": "example-org/example-repo",
+   "number": 3,
+   "title": "Synthetic issue 3",
+   "url": "https://github.com/example-org/example-repo/issues/3",
+   "author": "example-user",
+   "state": "closed",
+   "labels": [
+    "documentation",
+    "area:docs"
+   ],
+   "comments": 0,
+   "created_at": "2026-01-02T03:04:05Z",
+   "updated_at": "2026-01-02T04:05:06Z",
+   "excerpt": "Synthetic excerpt for issue 3.",
+   "answers": {
+    "category": {
+     "choice": "docs",
+     "confidence": 0.9,
+     "probabilities": {
+      "bug": 0.1,
+      "feature_request": 0.0,
+      "question": 0.0,
+      "docs": 0.9,
+      "other": 0.0
+     }
+    },
+    "area": {
+     "choice": "mcp_tools",
+     "confidence": 0.9,
+     "probabilities": {
+      "cli_terminal": 0.1,
+      "ide_integration": 0.0,
+      "desktop_app": 0.0,
+      "web_cloud": 0.0,
+      "mcp_tools": 0.9,
+      "model_behavior": 0.0,
+      "permissions_security": 0.0,
+      "performance": 0.0,
+      "auth_billing": 0.0,
+      "install_update": 0.0,
+      "other": 0.0
+     }
+    },
+    "severity": {
+     "score": 1.5,
+     "confidence": 0.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.4,
+      "2": 0.4,
+      "3": 0.1
+     }
+    },
+    "is_urgent": {
+     "noul": 0.2
+    },
+    "is_regression": {
+     "noul": 0.7
+    },
+    "has_repro": {
+     "noul": 0.5
+    },
+    "needs_info": {
+     "noul": 0.1
+    }
+   },
+   "model": "test-model-1",
+   "classified_at": "2026-01-02T05:00:00Z",
+   "reclassified": {
+    "area": {
+     "at": "2026-01-03T06:20:00Z",
+     "model": "test-model-2"
+    }
+   }
+  }
+ ]
+}
